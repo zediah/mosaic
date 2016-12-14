@@ -77,11 +77,6 @@ class MosaicApp {
         // Lets keep a count of the current pixel we're on
         // we'll use this to deteremine what tile we're up to
         let [ xPixelCount, yPixelCount ] = [0, 0];
-        // in theory, iterating over each value in the array is the quickest way due to memory
-        // as opposed to using 2x for loops and accessing different parts of the array to get a tile at a time
-        // shall have to do both and test...
-        let currentPixelRow = [];
-        let currentPixel : iPixel = {};
 
         // the data is one giant array where each 4 values in the array represent a single pixels 
         // RGBA values. So we have to create our 'pixel' objects and then place them into the group 
@@ -90,13 +85,13 @@ class MosaicApp {
             const yTile = Math.floor(yPixelCount / TILE_HEIGHT);
 
             // try get the group, create it if we don't have one already for this coord
-            let tileGroup = tileGroups[xTile] ? tileGroups[xTile][yTile] : undefined;
+            let tileGroup = tileGroups[yTile] ? tileGroups[yTile][xTile] : undefined;
             if (!tileGroup) {
                 tileGroup = new TileGroup(xTile, yTile);
-                if (!tileGroups[xTile]){
-                    tileGroups[xTile] = [];
+                if (!tileGroups[yTile]){
+                    tileGroups[yTile] = {};
                 }
-                tileGroups[xTile][yTile] = tileGroup;
+                tileGroups[yTile][xTile] = tileGroup;
             }
 
             const colourIndex = index % 4;
@@ -125,57 +120,6 @@ class MosaicApp {
                     xPixelCount = 0;
                 }
             }
-
-            // const colourIndex = index % 4;
-            // switch(colourIndex) {
-            //     case 0:
-            //         currentPixel = { red: colourData };
-            //         currentPixelRow.push(currentPixel);
-            //         break;
-            //     case 1:
-            //         currentPixel.green = colourData;
-            //         break;
-            //     case 2:
-            //         currentPixel.blue = colourData;
-            //         break;
-            //     case 3:
-            //         currentPixel.alpha = colourData;
-            //         break;                    
-            // }
-
-            // // 3 means we reached the last piece of colour data and 
-            // // we have a fully formed pixel. So add it to the appropriate tile group.
-            // if (colourIndex === 3) {
-            //     // Trying to avoid the number of times we have to calc things/get the tile groups
-            //     // So only add the pixels to the tile group if we finished with an entire row for that tile
-            //     if (xPixelCount % TILE_WIDTH === (TILE_WIDTH - 1)) {
-            //         // find out which tiles we're on
-            //         const xTile = Math.floor(xPixelCount / TILE_WIDTH);
-            //         const yTile = Math.floor(yPixelCount / TILE_HEIGHT);
-            //         const currentTileKey = `${xTile},${yTile}`;
-
-            //         // try get the group, create it if we don't have one already for this coord
-            //         let tileGroup = tileGroups[currentTileKey];
-            //         if (!tileGroup) {
-            //             tileGroup = new TileGroup(xTile, yTile);
-            //             tileGroups[currentTileKey] = tileGroup;
-            //         }
-
-            //         tileGroup.add(...currentPixelRow);
-
-            //         currentPixelRow = [];
-            //     }
-            
-
-            //     xPixelCount++;
-            //     // see if we reached the end
-            //     if (xPixelCount >= imageData.width) {
-            //         // we've moved to the next row
-            //         yPixelCount++;
-            //         xPixelCount = 0;
-            //     }
-            // }
-
         });
 
         return tileGroups;
@@ -210,20 +154,14 @@ class MosaicApp {
      */
     renderTileGroups(tileGroups : Object) {
         return new Promise((resolve, reject) => {
-            let lastX = 0;
-            // let rollingY = 0;
-            // let rowOfTiles : Array<TileGroup> = [];
+            let rollingY = 0;
             const rowManager = {};
             const promises = [];
 
             // ordering relies heavily on tileGroups being sorted correctly
             // as it assumes it always goes rows -> columns...probably something to improve
-            Object.values(tileGroups).forEach((rowGroup : Array<TileGroup>) => {
-                // // we want to accumulate all the tiles in a row, then do a load when we have a full
-                // // row worth of data and then render it like that
-                // if (lastX > 0 && rowGroup.x == 0) {
-                   
-                const loadPromises = rowGroup.map(tileGroup => {
+            Object.values(tileGroups).forEach((rowGroup :Object) => {   
+                const loadPromises = Object.values(rowGroup).map(tileGroup => {
                     const colour = tileGroup.getAverageColour();
                     return MosaicServiceInstance.getTile(colour)
                     .then(svgElement => {
@@ -232,7 +170,7 @@ class MosaicApp {
                         return { group: tileGroup, tile: svgElement};  
                     });  
                 });
-
+                
                 const allPromise = Promise.all(loadPromises).then(tileRow => {
                     // attempting to make sure that the rows also render from top to bottom
                     // this is done by keeping track of the last thing rendered
@@ -241,7 +179,7 @@ class MosaicApp {
                     // and row we're actually up to will always see if this function exists
                     // and call it if it does (which in turn, will attempt to d the same thing)
                     // thus, it all stays in order from top to bottom.
-                    const thisY = rowGroup.y - 1;
+                    const thisY = tileRow[0].group.y - 1;
                     const renderFunc = () => {
                         this.renderTileRow(tileRow);
                         rollingY++;
@@ -254,16 +192,10 @@ class MosaicApp {
                         renderFunc();
                     } else {
                         rowManager[thisY] = renderFunc;
-                    }
+                    }             
                 });
+
                 promises.push(allPromise);
-
-                // // reset the our array of rows now that we've send off our requests
-                // rowOfTiles = [];
-                // }
-
-                rowOfTiles.push(rowGroup);
-                lastX = rowGroup.x;
             });
 
             Promise.all(promises).then(() => {
