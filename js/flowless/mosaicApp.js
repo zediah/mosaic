@@ -65,7 +65,7 @@ class MosaicApp {
 
         // Lets keep a count of the current pixel we're on
         // we'll use this to deteremine what tile we're up to
-        let [xPixelCount, yPixelCount] = [0, 0];
+        let [xPixelCount, yPixelCount, colourCount] = [0, 0, 0];
 
         // the data is one giant array where each 4 values in the array represent a single pixels 
         // RGBA values. So we have to create our 'pixel' objects and then place them into the group 
@@ -83,31 +83,31 @@ class MosaicApp {
                 tileGroups[yTile][xTile] = tileGroup;
             }
 
-            const colourIndex = index % 4;
-            switch (colourIndex) {
+            switch (colourCount) {
                 case 0:
                     tileGroup.red += colourData;
+                    colourCount++;
                     break;
                 case 1:
                     tileGroup.green += colourData;
+                    colourCount++;
                     break;
                 case 2:
                     tileGroup.blue += colourData;
+                    colourCount++;
                     break;
                 case 3:
                     tileGroup.alpha += colourData;
+                    colourCount = 0;
+                    tileGroup.count++;
+                    xPixelCount++;
+                    // see if we reached the end
+                    if (xPixelCount >= imageData.width) {
+                        // we've moved to the next row
+                        yPixelCount++;
+                        xPixelCount = 0;
+                    }
                     break;
-            }
-
-            if (colourIndex == 3) {
-                tileGroup.count++;
-                xPixelCount++;
-                // see if we reached the end
-                if (xPixelCount >= imageData.width) {
-                    // we've moved to the next row
-                    yPixelCount++;
-                    xPixelCount = 0;
-                }
             }
         });
 
@@ -150,16 +150,22 @@ class MosaicApp {
             // ordering relies heavily on tileGroups being sorted correctly
             // as it assumes it always goes rows -> columns...probably something to improve
             Object.values(tileGroups).forEach(rowGroup => {
-                const loadPromises = Object.values(rowGroup).map(tileGroup => {
-                    const colour = tileGroup.getAverageColour();
-                    return MosaicServiceInstance.getTile(colour).then(svgElement => {
-                        // make sure we keep the two connected as order is defined by
-                        // by the row coordinate on the tile group 
-                        return { group: tileGroup, tile: svgElement };
+                const loadPromise = new Promise(resolve => {
+                    const promises = Object.values(rowGroup).map(tileGroup => {
+                        const colour = tileGroup.getAverageColour();
+                        return MosaicServiceInstance.getTile(colour).then(svgElement => {
+                            // make sure we keep the two connected as order is defined by
+                            // by the row coordinate on the tile group 
+                            return { group: tileGroup, tile: svgElement };
+                        });
                     });
-                });
 
-                const allPromise = Promise.all(loadPromises).then(tileRow => {
+                    Promise.all(promises).then(tileRow => {
+                        resolve(tileRow);
+                    }).catch(e => {
+                        console.error(e);
+                    });
+                }).then(tileRow => {
                     // attempting to make sure that the rows also render from top to bottom
                     // this is done by keeping track of the last thing rendered
                     // and if one of our loads for a later row returns earlier than the current/next to
@@ -182,11 +188,13 @@ class MosaicApp {
                     }
                 });
 
-                promises.push(allPromise);
+                promises.push(loadPromise);
             });
 
             Promise.all(promises).then(() => {
                 resolve();
+            }).catch(e => {
+                console.error(e);
             });
         });
     }
