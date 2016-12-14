@@ -192,8 +192,9 @@ class MosaicApp {
                         rollingY++;
                         // see if the number ahead of us is ready
                         const nextRender = rowManager[rollingY];
-                        if (nextRender)
-                            nextRender();
+                        if (nextRender) {
+                            setTimeout(nextRender, 10);
+                        }
                     }
                     if (thisY === rollingY) {
                         renderFunc();

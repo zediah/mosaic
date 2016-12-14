@@ -13,6 +13,8 @@ class Service {
     constructor() {
         this.requestGroups = { length: 0 };
         this.maxRequests = 100;
+        this.maxWorkers = 5;
+        this.workers = new Set();
     }
 
     runWorker(requestsToRun) {
@@ -20,6 +22,16 @@ class Service {
         window.clearTimeout(this.requestTimer);
         this.requestGroups = { length: 0 };
         this.requestTimer = undefined;
+
+        // we don't want to be sending a crazy amount of requests to the back end
+        // so if we have our max number of workers working right now
+        // come back again in 50 milliseconds to see if there's room
+        if (this.workers.size >= this.maxWorkers) {
+            setTimeout(() => {
+                this.runWorker(requestsToRun);
+            }, 100);
+            return;
+        }
 
         // run the worker
         const worker = new Worker("js/base/worker.js");
@@ -33,12 +45,16 @@ class Service {
                     realRequest.resolve(request.data);
                 }
             });
+            worker.terminate();
+            this.workers.delete(worker);
         };
         const workerRequests = Object.values(requestsToRun).filter(val => isNaN(val)).map(request => {
             return { method: request.method, url: request.url, id: request.id, data: request.data };
         });
         worker.postMessage(workerRequests);
+        this.workers.add(worker);
     }
+
     /**
      * Action the request given based on the parameters
      * @param  {string} method The type of request, e.g. get, post, etc
