@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="js/flowless/base/service.js"></script>
+    <script type="text/javascript" src="js/flowless/mosaic.js"></script>
+    <script type="text/javascript" src="js/flowless/mosaicService.js"></script>
+    <script type="text/javascript" src="js/flowless/tileGroup.js"></script>
+    <script type="text/javascript" src="js/flowless/mosaicApp.js"></script>
+    <script type="text/javascript" src="js/flowless/client.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/mosaic.css"/>
+    <title>Mosaic</title>
+  </head>
+  <body>
+    <div class="mosaic-app">
+      <div class="mosaic-header">
+        <h1>Behold My Genius!</h1>
+        <p>
+            I can turn any any image you give me into a mosaic!<br/>
+            It's not much, but it pays the bills.
+        </p> 
+        <input type="file" id="input-image" accept="image/*"/>
+      </div>
+      <div id="loader"></div>
+      <div id="mosaic-container">
+          <!-- mosaic will go here -->
+      </div>
+    </div>
+  </body>
+</html>

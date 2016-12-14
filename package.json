@@ -1,0 +1,15 @@
+{
+  "author": "Canva",
+  "name": "mosaic",
+  "version": "0.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "//" : ["please note: when using compile, you will need to delete the 'flowless' directory first",
+    "On my machine in windows, I would run 'rmdir \"js/flowless\" /s /q && npm run compile' in the terminal"],
+    "compile": "babel js --out-dir js/flowless"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.18.0",
+    "babel-plugin-transform-flow-strip-types": "^6.18.0"
+  }
+}
